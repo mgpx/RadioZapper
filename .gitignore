@@ -1,0 +1,12 @@
+# Arquivos gerados pelo .NET e pelo Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Rastreamento local
+host-trace.txt
+
+# Documentação que não deve ser enviada ao repositório
+API-RadiosNet.md

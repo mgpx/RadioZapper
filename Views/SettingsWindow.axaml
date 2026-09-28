@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RadioZapper.Views.SettingsWindow"
+        x:CompileBindings="False"
+        Width="390" Height="310" WindowStartupLocation="CenterOwner"
+        Title="Configurações">
+  <StackPanel Margin="24" Spacing="16">
+    <TextBlock Text="Configurações" FontSize="23" FontWeight="SemiBold" />
+    <CheckBox Content="Iniciar minimizado na bandeja" IsChecked="{Binding StartMinimized}" />
+    <CheckBox Content="Fechar para a bandeja" IsChecked="{Binding CloseToTray}" />
+    <TextBlock Text="Tema" />
+    <ComboBox SelectedIndex="{Binding ThemeIndex}">
+      <ComboBoxItem Content="Sistema" />
+      <ComboBoxItem Content="Escuro" />
+      <ComboBoxItem Content="Claro" />
+    </ComboBox>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Cancelar" Click="Cancel_Click" />
+      <Button Content="Salvar" Command="{Binding SaveCommand}" />
+    </StackPanel>
+  </StackPanel>
+</Window>

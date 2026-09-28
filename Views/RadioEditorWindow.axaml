@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RadioZapper.Views.RadioEditorWindow"
+        x:CompileBindings="False"
+        Width="480" Height="620" MinWidth="400" WindowStartupLocation="CenterOwner"
+        Title="Rádio">
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="12">
+      <TextBlock Text="{Binding Title}" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,8" />
+      <Border IsVisible="{Binding IsImportVisible}" CornerRadius="12" Padding="12" Background="#16808080">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Importar do Radios.com.br ou de um arquivo PLS" FontWeight="SemiBold" />
+          <TextBox Text="{Binding ImportLink}" PlaceholderText="Cole o link da página ou do arquivo .pls" />
+          <Button Content="Buscar dados" Command="{Binding ImportCommand}" HorizontalAlignment="Right" />
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsImporting}" Height="3" />
+          <TextBlock Text="{Binding ImportStatus}" TextWrapping="Wrap" FontSize="12" Opacity="0.75" />
+        </StackPanel>
+      </Border>
+      <TextBlock Text="Nome *" />
+      <TextBox Text="{Binding Name}" PlaceholderText="Ex.: Atlântida FM" />
+      <TextBlock Text="URL do stream *" />
+      <TextBox Text="{Binding StreamUrl}" PlaceholderText="https://..." />
+      <TextBlock Text="Cidade / estado" />
+      <TextBox Text="{Binding Location}" PlaceholderText="Ex.: Porto Alegre - RS" />
+      <TextBlock Text="Logotipo (URL ou imagem local)" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0" Text="{Binding LogoSource}" PlaceholderText="https://... ou caminho da imagem" />
+        <Button Grid.Column="1" Content="Procurar" Click="BrowseLogo_Click" />
+      </Grid>
+      <CheckBox Content="Favorita" IsChecked="{Binding IsFavorite}" Margin="0,8,0,0" />
+      <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+        <Button Content="Cancelar" Click="Cancel_Click" />
+        <Button Content="Salvar" Command="{Binding SaveCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>
