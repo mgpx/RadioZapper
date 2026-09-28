@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RadioZapper.Views.RadioSearchWindow"
+        x:CompileBindings="False"
+        Width="620" Height="650" MinWidth="480" MinHeight="450"
+        WindowStartupLocation="CenterOwner" Title="Buscar rádios — Radio Zapper">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="24" RowSpacing="12">
+    <TextBlock Text="Buscar rádios" FontSize="24" FontWeight="SemiBold" />
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+      <TextBox Text="{Binding SearchText}" PlaceholderText="Nome da rádio" />
+      <Button Grid.Column="1" Content="Pesquisar" Command="{Binding SearchCommand}" />
+    </Grid>
+    <Grid Grid.Row="2">
+      <TextBlock Text="Nenhuma rádio encontrada." IsVisible="{Binding IsEmpty}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.65" />
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Results}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border CornerRadius="12" Background="#12808080" Padding="12" Margin="0,0,0,8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="3">
+                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Location}" FontSize="11" Opacity="0.7" />
+                    <TextBlock Text="{Binding Genres}" FontSize="11" Opacity="0.6" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Content="▶ Tocar" Command="{Binding PlayCommand}" IsEnabled="{Binding !IsBusy}" />
+                    <Button Content="Salvar" Command="{Binding SaveCommand}" IsEnabled="{Binding !IsBusy}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+    <StackPanel Grid.Row="3" Spacing="8">
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" Height="3" />
+      <Button Content="Carregar mais" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}"
+              HorizontalAlignment="Center" />
+    </StackPanel>
+    <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap" />
+  </Grid>
+</Window>

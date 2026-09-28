@@ -41,9 +41,13 @@ Distribua o conteúdo da pasta publicada, inclusive `libvlc\win-x64`. Copiar som
 
 Na janela compacta do player, clique em **Minhas rádios** e depois em **+ Adicionar rádio**. Informe um nome e uma URL HTTP ou HTTPS de stream e salve. Localização, logotipo e favorito são opcionais. O logotipo pode ser uma URL de imagem ou um arquivo local selecionado em **Procurar**. Uma cópia da imagem local é guardada nos dados do aplicativo.
 
+Para encontrar uma rádio no catálogo RadiosNet, clique em **Buscar rádios** na janela principal, digite o nome e escolha **Pesquisar**. Os resultados podem ser ampliados com **Carregar mais**. Clique em **Tocar** para ouvir sem cadastrar ou em **Salvar** para abrir o cadastro com os dados preenchidos. Enquanto uma rádio encontrada estiver tocando sem cadastro, o botão **Salvar rádio** aparece no player para permitir salvá-la depois. Confira os campos antes de confirmar.
+
 Para importar, cole no campo **Link para importar** a página de uma rádio no Radios.com.br ou um link HTTP/HTTPS para um arquivo `.pls` e clique em **Buscar dados**. O aplicativo tenta preencher nome, stream direto, cidade/estado e logotipo. Se a página do Radios.com.br bloquear a leitura, a playlist ainda pode fornecer o stream, e o aplicativo tenta buscar os dados descritivos no RadiosNet. Um `.pls` de outro site pode trazer apenas o stream e, às vezes, o nome. Revise os campos antes de salvar. Se as fontes estiverem indisponíveis, complete o cadastro manualmente. A importação de páginas é específica desses sites e pode precisar de atualização se eles mudarem sua estrutura.
 
 Clique em **Tocar** na janela de gerenciamento para iniciar a rádio e voltar ao player. O nome da estação seleciona sem reproduzir. Os controles centrais alternam reprodução e pausa, e avançam ou voltam na ordem exibida. Os botões de seta em cada rádio alteram essa ordem; ao chegar ao fim, **Próxima estação** volta à primeira rádio.
+
+Durante a reprodução de uma rádio encontrada e ainda não salva, **Play/Pause** controla essa rádio. **Anterior** passa para a última rádio salva e **Próxima** para a primeira. Rádios temporárias não são restauradas quando o aplicativo reinicia.
 
 Como rádios transmitem áudio ao vivo, **Pause** interrompe o stream e **Play** reconecta ao ponto atual da transmissão. Se a conexão falhar, a interface mostrará o erro e continuará utilizável.
 

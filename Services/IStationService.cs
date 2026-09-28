@@ -7,9 +7,11 @@ public interface IStationService
     event EventHandler? Changed;
     IReadOnlyList<RadioStation> Stations { get; }
     RadioStation? CurrentStation { get; }
+    bool IsCurrentStationTemporary { get; }
     Task InitializeAsync();
     Task SelectAsync(Guid id);
     Task PlayAsync(RadioStation station);
+    Task PlayTemporaryAsync(RadioStation station);
     Task ToggleAsync();
     Task NextAsync();
     Task PreviousAsync();

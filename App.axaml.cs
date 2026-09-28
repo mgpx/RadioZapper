@@ -24,9 +24,11 @@ public partial class App : Application
     private IMediaKeyService? _mediaKeys;
     private LogoService? _logos;
     private StationImportService? _importer;
+    private RadiosNetService? _radiosNet;
     private MainWindowViewModel? _viewModel;
     private MainWindow? _window;
     private StationManagementWindow? _managementWindow;
+    private RadioSearchWindow? _searchWindow;
     private TrayIcon? _tray;
     private NativeMenuItem? _stationItem;
     private NativeMenuItem? _playItem;
@@ -54,10 +56,13 @@ public partial class App : Application
         _mediaKeys = new WindowsMediaKeyService(_logging.CreateLogger<WindowsMediaKeyService>());
         _logos = new LogoService(paths, _logging.CreateLogger<LogoService>());
         _importer = new StationImportService(_logging.CreateLogger<StationImportService>());
+        _radiosNet = new RadiosNetService();
         _viewModel = new MainWindowViewModel(_stations, _player, _settings, _logos, _mediaKeys,
             _logging.CreateLogger<MainWindowViewModel>());
         _window = new MainWindow { DataContext = _viewModel };
         _viewModel.ShowStations = ShowStationManagementWindow;
+        _viewModel.ShowSearch = ShowRadioSearchWindow;
+        _viewModel.ShowSaveCurrentAsync = SaveCurrentStationAsync;
         _viewModel.ShowSettingsAsync = ShowSettingsAsync;
         _viewModel.PropertyChanged += (_, _) => UpdateTrayText();
         _window.Opened += (_, _) =>
@@ -152,10 +157,48 @@ public partial class App : Application
     }
 
     private async Task<RadioStation?> ShowEditorAsync(RadioStation? station, Window owner)
+        => await ShowEditorAsync(station, owner, false);
+
+    private async Task<RadioStation?> ShowEditorAsync(RadioStation? station, Window owner, bool isNew)
     {
         if (_logos is null || _importer is null) return null;
-        var dialog = new RadioEditorWindow { DataContext = new RadioEditorViewModel(station, _logos, _importer!) };
+        var dialog = new RadioEditorWindow { DataContext = new RadioEditorViewModel(station, _logos, _importer, isNew) };
         return await dialog.ShowDialog<RadioStation?>(owner);
+    }
+
+    private void ShowRadioSearchWindow()
+    {
+        if (_window is null || _stations is null || _radiosNet is null) return;
+        if (_searchWindow is { } existing)
+        {
+            existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            return;
+        }
+
+        var viewModel = new RadioSearchViewModel(_radiosNet, _stations);
+        var window = new RadioSearchWindow { DataContext = viewModel, Icon = LoadIcon() };
+        _searchWindow = window;
+        viewModel.ShowEditorAsync = station => ShowEditorAsync(station, window, true);
+        viewModel.StationPlayed += (_, _) =>
+        {
+            window.Close();
+            ShowWindow();
+        };
+        window.Closed += (_, _) =>
+        {
+            viewModel.Dispose();
+            if (ReferenceEquals(_searchWindow, window)) _searchWindow = null;
+        };
+        window.Show(_window);
+    }
+
+    private async Task SaveCurrentStationAsync()
+    {
+        if (_window is null || _stations is null || !_stations.IsCurrentStationTemporary
+            || _stations.CurrentStation is not { } current) return;
+        var edited = await ShowEditorAsync(current.Copy(), _window, true);
+        if (edited is not null) await _stations.AddAsync(edited);
     }
 
     private async Task ShowSettingsAsync()
@@ -181,6 +224,7 @@ public partial class App : Application
     {
         if (_window is null || _exiting) return;
         _managementWindow?.Close();
+        _searchWindow?.Close();
         _window.ShowInTaskbar = false;
         _window.Hide();
     }
@@ -229,6 +273,7 @@ public partial class App : Application
         _player?.Dispose();
         _logos?.Dispose();
         _importer?.Dispose();
+        _radiosNet?.Dispose();
         _tray?.Dispose();
         _logging?.Dispose();
     }

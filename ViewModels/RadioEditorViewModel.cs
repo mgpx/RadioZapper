@@ -12,7 +12,7 @@ public partial class RadioEditorViewModel : ObservableObject
     private readonly Guid _id;
     private readonly int _order;
 
-    public RadioEditorViewModel(RadioStation? station, LogoService logos, StationImportService importer)
+    public RadioEditorViewModel(RadioStation? station, LogoService logos, StationImportService importer, bool isNew = false)
     {
         _logos = logos;
         _importer = importer;
@@ -23,8 +23,8 @@ public partial class RadioEditorViewModel : ObservableObject
         Location = station?.Location ?? string.Empty;
         LogoSource = station?.LogoSource ?? string.Empty;
         IsFavorite = station?.IsFavorite ?? false;
-        Title = station is null ? "Adicionar rádio" : "Editar rádio";
-        IsImportVisible = station is null;
+        Title = station is null || isNew ? "Adicionar rádio" : "Editar rádio";
+        IsImportVisible = station is null || isNew;
     }
 
     public event EventHandler<RadioStation>? Saved;

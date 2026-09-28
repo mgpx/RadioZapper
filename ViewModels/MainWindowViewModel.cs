@@ -39,6 +39,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public Action? ShowStations { get; set; }
+    public Action? ShowSearch { get; set; }
+    public Func<Task>? ShowSaveCurrentAsync { get; set; }
     public Func<Task>? ShowSettingsAsync { get; set; }
 
     [ObservableProperty] private string _currentName = "Nenhuma rádio selecionada";
@@ -50,6 +52,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty] private Bitmap? _currentLogo;
     [ObservableProperty] private bool _isLogoMissing = true;
     [ObservableProperty] private double _volume = 70;
+    [ObservableProperty] private bool _canSaveCurrent;
 
     public void Initialize()
     {
@@ -94,6 +97,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var current = _stationService.CurrentStation;
         CurrentName = current?.Name ?? "Nenhuma rádio selecionada";
         CurrentLocation = current?.Location ?? (current is null ? "Cadastre uma rádio para começar" : string.Empty);
+        CanSaveCurrent = _stationService.IsCurrentStationTemporary;
         _mediaKeys.Update(current, _player.State);
         if (_lastLogoSource != current?.LogoSource)
         {
@@ -142,6 +146,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand] private Task PreviousAsync() => RunAsync(_stationService.PreviousAsync);
 
     [RelayCommand] private void Stations() => ShowStations?.Invoke();
+    [RelayCommand] private void Search() => ShowSearch?.Invoke();
+    [RelayCommand] private Task SaveCurrentAsync() => RunAsync(() => ShowSaveCurrentAsync?.Invoke() ?? Task.CompletedTask);
 
     [RelayCommand]
     private Task SettingsAsync() => ShowSettingsAsync?.Invoke() ?? Task.CompletedTask;

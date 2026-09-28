@@ -15,6 +15,7 @@ public sealed class StationService(
     public event EventHandler? Changed;
     public IReadOnlyList<RadioStation> Stations => _stations;
     public RadioStation? CurrentStation { get; private set; }
+    public bool IsCurrentStationTemporary => CurrentStation is not null && Find(CurrentStation.Id) is null;
 
     public async Task InitializeAsync()
     {
@@ -60,6 +61,21 @@ public sealed class StationService(
         finally { _gate.Release(); }
     }
 
+    public async Task PlayTemporaryAsync(RadioStation station)
+    {
+        Validate(station);
+        await _gate.WaitAsync();
+        try
+        {
+            var copy = station.Copy();
+            if (copy.Id == Guid.Empty || Find(copy.Id) is not null) copy.Id = Guid.NewGuid();
+            SetCurrent(copy);
+            await settings.SaveAsync();
+            await player.PlayAsync(copy);
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task ToggleAsync()
     {
         await _gate.WaitAsync();
@@ -85,8 +101,9 @@ public sealed class StationService(
         try
         {
             if (_stations.Count == 0) return;
-            var index = CurrentStation is null ? (direction > 0 ? -1 : 0) : _stations.FindIndex(s => s.Id == CurrentStation.Id);
-            var next = (index + direction + _stations.Count) % _stations.Count;
+            var index = CurrentStation is null ? -1 : _stations.FindIndex(s => s.Id == CurrentStation.Id);
+            var next = index < 0 ? (direction > 0 ? 0 : _stations.Count - 1)
+                : (index + direction + _stations.Count) % _stations.Count;
             await PlayCoreAsync(_stations[next]);
         }
         finally { _gate.Release(); }
@@ -99,13 +116,18 @@ public sealed class StationService(
         try
         {
             if (_stations.Any(s => s.Id == station.Id)) station.Id = Guid.NewGuid();
+            var wasTemporary = IsCurrentStationTemporary && CurrentStation?.Id == station.Id;
+            var previousUrl = wasTemporary ? CurrentStation?.StreamUrl : null;
             station.Order = _stations.Count;
             var copy = station.Copy();
             _stations.Add(copy);
-            if (CurrentStation is null)
+            if (CurrentStation is null || wasTemporary)
             {
                 SetCurrent(copy);
                 await settings.SaveAsync();
+                if (wasTemporary && previousUrl != copy.StreamUrl
+                    && player.State is (PlaybackState.Playing or PlaybackState.Connecting))
+                    await player.PlayAsync(copy);
             }
             await PersistAsync();
             Changed?.Invoke(this, EventArgs.Empty);
@@ -200,7 +222,7 @@ public sealed class StationService(
     private void SetCurrent(RadioStation? station)
     {
         CurrentStation = station;
-        settings.Current.LastStationId = station?.Id;
+        settings.Current.LastStationId = station is not null && Find(station.Id) is not null ? station.Id : null;
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
