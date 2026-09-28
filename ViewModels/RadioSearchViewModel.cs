@@ -11,9 +11,6 @@ public partial class RadioSearchViewModel : ObservableObject, IDisposable
     private readonly RadiosNetService _catalog;
     private readonly IStationService _stations;
     private CancellationTokenSource? _searchCancellation;
-    private string _activeQuery = string.Empty;
-    private int _page;
-    private int _pages;
 
     public RadioSearchViewModel(RadiosNetService catalog, IStationService stations)
     {
@@ -28,7 +25,6 @@ public partial class RadioSearchViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _hasSearched;
-    [ObservableProperty] private bool _hasMore;
     public bool IsEmpty => HasSearched && Results.Count == 0 && !IsLoading && ErrorMessage is null;
 
     [RelayCommand]
@@ -39,33 +35,22 @@ public partial class RadioSearchViewModel : ObservableObject, IDisposable
         _searchCancellation?.Dispose();
         _searchCancellation = new CancellationTokenSource();
         Results.Clear();
-        _page = 0;
-        _pages = 0;
-        _activeQuery = query;
         HasSearched = false;
-        HasMore = false;
         ErrorMessage = query.Length == 0 ? "Informe o nome da rádio para pesquisar." : null;
         OnPropertyChanged(nameof(IsEmpty));
-        if (query.Length > 0) await LoadPageAsync(_searchCancellation.Token);
+        if (query.Length > 0) await LoadResultsAsync(query, _searchCancellation.Token);
     }
 
-    [RelayCommand]
-    private Task LoadMoreAsync() => HasMore && !IsLoading && _searchCancellation is not null
-        ? LoadPageAsync(_searchCancellation.Token) : Task.CompletedTask;
-
-    private async Task LoadPageAsync(CancellationToken token)
+    private async Task LoadResultsAsync(string query, CancellationToken token)
     {
         IsLoading = true;
         ErrorMessage = null;
         OnPropertyChanged(nameof(IsEmpty));
         try
         {
-            var page = await _catalog.SearchAsync(_activeQuery, _page + 1, token);
+            var items = await _catalog.SearchAsync(query, token);
             if (token.IsCancellationRequested) return;
-            foreach (var item in page.Items) Results.Add(new RadioSearchItemViewModel(item, this));
-            _page = page.Page;
-            _pages = page.Pages;
-            HasMore = _page < _pages;
+            foreach (var item in items) Results.Add(new RadioSearchItemViewModel(item, this));
             HasSearched = true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
@@ -140,7 +125,6 @@ public partial class RadioSearchItemViewModel : ObservableObject
     public RadiosNetSearchItem Item { get; }
     public string Name => Item.Name;
     public string Location => Item.Location ?? string.Empty;
-    public string Genres => Item.Genres ?? string.Empty;
     [ObservableProperty] private bool _isBusy;
 
     public async Task<RadioStation> GetStationAsync(RadiosNetService service)

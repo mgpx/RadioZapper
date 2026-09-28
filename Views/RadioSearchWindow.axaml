@@ -22,7 +22,6 @@
                   <StackPanel Spacing="3">
                     <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding Location}" FontSize="11" Opacity="0.7" />
-                    <TextBlock Text="{Binding Genres}" FontSize="11" Opacity="0.6" />
                   </StackPanel>
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Button Content="▶ Tocar" Command="{Binding PlayCommand}" IsEnabled="{Binding !IsBusy}" />
@@ -37,8 +36,6 @@
     </Grid>
     <StackPanel Grid.Row="3" Spacing="8">
       <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" Height="3" />
-      <Button Content="Carregar mais" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}"
-              HorizontalAlignment="Center" />
     </StackPanel>
     <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap" />
   </Grid>

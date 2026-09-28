@@ -5,8 +5,7 @@ using RadioZapper.Models;
 
 namespace RadioZapper.Services;
 
-public sealed record RadiosNetSearchItem(int Id, string Name, string? Location, string? LogoSource, string? Genres);
-public sealed record RadiosNetSearchPage(IReadOnlyList<RadiosNetSearchItem> Items, int Page, int Pages);
+public sealed record RadiosNetSearchItem(int Id, string Name, string? Location, string? LogoSource);
 
 public sealed class RadiosNetService : IDisposable
 {
@@ -23,32 +22,24 @@ public sealed class RadiosNetService : IDisposable
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
-    public async Task<RadiosNetSearchPage> SearchAsync(string query, int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<RadiosNetSearchItem>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
         query = query.Trim();
         if (query.Length == 0) throw new ArgumentException("Informe o nome da rádio para pesquisar.");
-        if (page < 1) throw new ArgumentOutOfRangeException(nameof(page));
-        using var document = await GetAsync($"busca/todos?q={Uri.EscapeDataString(query)}&pg={page}&limit=20", cancellationToken);
+        using var document = await GetAsync($"auto/busca?q={Uri.EscapeDataString(query)}", cancellationToken);
         var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("results", out var results)
-            || results.ValueKind != JsonValueKind.Object)
+        if (root.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("A API retornou uma busca em formato inesperado.");
-        ThrowApiError(results);
         var items = new List<RadiosNetSearchItem>();
-        if (results.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
-            && data.TryGetProperty("items", out var entries)
-            && entries.ValueKind == JsonValueKind.Array)
+        foreach (var entry in root.EnumerateArray())
         {
-            foreach (var entry in entries.EnumerateArray())
-            {
-                var id = GetInt(entry, "id");
-                var name = GetString(entry, "title");
-                if (id <= 0 || string.IsNullOrWhiteSpace(name)) continue;
-                items.Add(new RadiosNetSearchItem(id, name, GetString(entry, "detail"),
-                    MakeLogoUrl(GetString(entry, "url_logo")), GetString(entry, "extra")));
-            }
+            var id = GetInt(entry, "id");
+            var name = GetString(entry, "title");
+            if (id <= 0 || string.IsNullOrWhiteSpace(name)) continue;
+            items.Add(new RadiosNetSearchItem(id, name, GetString(entry, "subtitle"),
+                MakeLogoUrl(GetString(entry, "url_logo"))));
         }
-        return new RadiosNetSearchPage(items, GetInt(root, "page"), GetInt(root, "pages"));
+        return items;
     }
 
     public async Task<RadioStation> GetStationAsync(int id, CancellationToken cancellationToken = default)
@@ -89,12 +80,6 @@ public sealed class RadiosNetService : IDisposable
         response.EnsureSuccessStatusCode();
         await using var content = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken);
-    }
-
-    private static void ThrowApiError(JsonElement results)
-    {
-        if (!results.TryGetProperty("error", out var error) || error.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return;
-        throw new InvalidDataException(GetString(error, "user_message") ?? "O RadiosNet não conseguiu concluir a busca.");
     }
 
     private static string? GetString(JsonElement element, string name) =>

@@ -16,15 +16,16 @@ static async Task TestSearchAndDetailsAsync()
         requests.Add(request.RequestUri!);
         Assert(request.Headers.UserAgent.Count > 0, "User-Agent ausente");
         Assert(request.Headers.Accept.Any(value => value.MediaType == "application/json"), "Accept ausente");
-        var body = request.RequestUri!.AbsolutePath.EndsWith("/busca/todos")
-            ? """{"page":1,"pages":2,"results":{"data":{"items":[{"id":-151},{"id":98,"title":"Rádio 93 FM","detail":"Boa Vista / RR - Brasil","url_logo":"radio98.jpg","extra":"Hits"}]}}}"""
+        var body = request.RequestUri!.AbsolutePath.EndsWith("/auto/busca")
+            ? """[{"id":-151},{"id":98,"title":"Rádio 93 FM","subtitle":"Boa Vista / RR - Brasil","url_logo":"radio98.jpg"}]"""
             : """{"id":98,"title":"Rádio 93 FM","localizacao":"Boa Vista / RR - Brasil","url_logo":"radio98.jpg","streams":[{"url":"ftp://inválido"},{"url":"https://stream.example/radio"}]}""";
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
     }));
-    var page = await service.SearchAsync("  jovem  ", 1);
-    Assert(page.Items.Count == 1 && page.Items[0].Id == 98 && page.Pages == 2, "Busca incorreta");
-    Assert(requests[0].Query.Contains("q=jovem") && requests[0].Query.Contains("pg=1")
-        && requests[0].Query.Contains("limit=20") && requests[0].Query.Contains("app=android"), "Parâmetros incorretos");
+    var items = await service.SearchAsync("  jovem  ");
+    Assert(items.Count == 1 && items[0].Id == 98 && items[0].Location == "Boa Vista / RR - Brasil", "Busca incorreta");
+    Assert(requests[0].AbsolutePath.EndsWith("/auto/busca") && requests[0].Query.Contains("q=jovem")
+        && !requests[0].Query.Contains("pg=") && !requests[0].Query.Contains("limit=")
+        && requests[0].Query.Contains("app=android"), "Parâmetros incorretos");
     var station = await service.GetStationAsync(98);
     Assert(station.Name == "Rádio 93 FM" && station.StreamUrl == "https://stream.example/radio", "Detalhes incorretos");
     Assert(station.LogoSource == "https://img.radios.com.br/radio/md/radio98.jpg", "Logo incorreto");
@@ -78,7 +79,7 @@ static async Task TestApiErrorsAsync()
     {
         Content = new StringContent("""{"results":{"error":{"user_message":"Busca indisponível"}}}""")
     }));
-    await ExpectAsync<InvalidDataException>(() => apiError.SearchAsync("rádio"), "Erro da API foi ignorado");
+    await ExpectAsync<InvalidDataException>(() => apiError.SearchAsync("rádio"), "Formato inesperado foi aceito");
 }
 
 static async Task ExpectAsync<TException>(Func<Task> action, string message) where TException : Exception
