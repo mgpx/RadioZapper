@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Reflection;
 using RadioZapper.Models;
 
 namespace RadioZapper.ViewModels;
@@ -12,6 +13,11 @@ public partial class SettingsViewModel : ObservableObject
         CloseToTray = settings.CloseToTray;
         ThemeIndex = settings.Theme switch { "Dark" => 1, "Light" => 2, _ => 0 };
     }
+
+    public string AppVersion { get; } = $"Versão {typeof(SettingsViewModel).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3)
+        ?? "desconhecida"}";
 
     public event EventHandler? Saved;
     [ObservableProperty] private bool _startMinimized;

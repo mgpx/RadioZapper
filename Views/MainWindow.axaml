@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RadioZapper.Views.MainWindow"
         x:CompileBindings="False"
-        Width="400" Height="520" MinWidth="360" MinHeight="500"
+        Width="400" Height="560" MinWidth="360" MinHeight="520"
         Title="Radio Zapper" WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" Margin="20" RowSpacing="12">
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
@@ -13,19 +13,41 @@
       <Button Grid.Column="1" Content="⚙" FontSize="18" Command="{Binding SettingsCommand}" ToolTip.Tip="Configurações" />
     </Grid>
 
-    <Border Grid.Row="1" CornerRadius="22" Padding="18" Background="#19808080" MinHeight="190">
-      <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Border Width="82" Height="82" CornerRadius="18" Background="#33808080" HorizontalAlignment="Center">
-          <Grid>
-            <Image Source="{Binding CurrentLogo}" Stretch="UniformToFill" />
-            <TextBlock Text="♫" IsVisible="{Binding IsLogoMissing}" FontSize="42"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <Border Grid.Row="1" CornerRadius="22" Padding="16" Background="#19808080" MinHeight="190">
+      <StackPanel Spacing="14" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="64,*" ColumnSpacing="12" MinHeight="64">
+          <Border Width="64" Height="64" CornerRadius="16" Background="#33808080" VerticalAlignment="Center">
+            <Grid>
+              <Image Source="{Binding CurrentLogo}" Stretch="UniformToFill" />
+              <TextBlock Text="♫" IsVisible="{Binding IsLogoMissing}" FontSize="36"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+            <TextBlock Text="{Binding CurrentName}" FontSize="18" FontWeight="SemiBold"
+                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2"
+                       ToolTip.Tip="{Binding CurrentName}" />
+            <TextBlock Text="{Binding CurrentLocation}" Opacity="0.65" FontSize="12"
+                       TextTrimming="CharacterEllipsis" MaxLines="1" />
+            <TextBlock Text="{Binding Status}" FontSize="12" />
+          </StackPanel>
+        </Grid>
+        <Grid IsVisible="{Binding IsProgramVisible}" RowDefinitions="Auto,Auto" RowSpacing="2">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Text="Programação prevista agora" FontSize="11" Opacity="0.7"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Ver grade ›" Command="{Binding DetailsCommand}"
+                    FontSize="12" Padding="6,2" HorizontalAlignment="Right"
+                    ToolTip.Tip="Conferir a programação completa" />
           </Grid>
-        </Border>
-        <TextBlock Text="{Binding CurrentName}" FontSize="21" FontWeight="SemiBold"
-                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="320" />
-        <TextBlock Text="{Binding CurrentLocation}" Opacity="0.65" FontSize="12" HorizontalAlignment="Center" />
-        <TextBlock Text="{Binding Status}" FontSize="12" HorizontalAlignment="Center" />
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <TextBlock Text="{Binding CurrentProgram}" FontSize="12" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" MaxLines="1"
+                       ToolTip.Tip="{Binding CurrentProgram}" />
+            <TextBlock Grid.Column="1" Text="{Binding AdditionalPrograms}" FontSize="12"
+                       IsVisible="{Binding HasAdditionalPrograms}" ToolTip.Tip="Outros programas neste horário" />
+          </Grid>
+        </Grid>
       </StackPanel>
     </Border>
 

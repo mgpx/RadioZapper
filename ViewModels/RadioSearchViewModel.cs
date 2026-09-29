@@ -19,7 +19,6 @@ public partial class RadioSearchViewModel : ObservableObject, IDisposable
     }
 
     public Func<RadioStation, Task<RadioStation?>>? ShowEditorAsync { get; set; }
-    public event EventHandler? StationPlayed;
     public ObservableCollection<RadioSearchItemViewModel> Results { get; } = [];
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string? _errorMessage;
@@ -78,7 +77,6 @@ public partial class RadioSearchViewModel : ObservableObject, IDisposable
             ErrorMessage = null;
             var station = await item.GetStationAsync(_catalog);
             await _stations.PlayTemporaryAsync(station);
-            StationPlayed?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidDataException
                                    or System.Text.Json.JsonException or ArgumentException or IOException or UnauthorizedAccessException)

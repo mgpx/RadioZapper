@@ -12,6 +12,8 @@ public sealed class RadiosNetService : IDisposable
     private const string BaseUrl = "https://app.venganet.com/radiosnet/2.2/";
     private const string LogoBaseUrl = "https://img.radios.com.br/radio/md/";
     private readonly HttpClient _http;
+    private readonly Dictionary<int, (DateOnly Day, TimeSpan Offset, RadiosNetStationDetails Details)> _detailsCache = [];
+    private readonly object _cacheGate = new();
 
     public RadiosNetService(HttpMessageHandler? handler = null)
     {
@@ -43,8 +45,16 @@ public sealed class RadiosNetService : IDisposable
     }
 
     public async Task<RadioStation> GetStationAsync(int id, CancellationToken cancellationToken = default)
+        => (await GetDetailsAsync(id, cancellationToken)).Station;
+
+    public async Task<RadiosNetStationDetails> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
     {
         if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
+        var now = DateTimeOffset.Now;
+        var cacheDay = DateOnly.FromDateTime(now.DateTime);
+        lock (_cacheGate)
+            if (_detailsCache.TryGetValue(id, out var cached) && cached.Day == cacheDay && cached.Offset == now.Offset)
+                return cached.Details;
         using var document = await GetAsync($"radio/{id}", cancellationToken);
         var root = document.RootElement;
         if (root.ValueKind != JsonValueKind.Object)
@@ -52,6 +62,7 @@ public sealed class RadiosNetService : IDisposable
         var name = GetString(root, "title");
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidDataException("A API não informou o nome da rádio.");
         string? stream = null;
+        string? userAgent = null;
         if (root.TryGetProperty("streams", out var streams) && streams.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in streams.EnumerateArray())
@@ -59,17 +70,65 @@ public sealed class RadiosNetService : IDisposable
                 var candidate = GetString(item, "url");
                 if (!StationService.IsStreamUrlValid(candidate)) continue;
                 stream = candidate;
+                if (item.TryGetProperty("headers", out var headers))
+                    userAgent = GetString(headers, "User-Agent");
                 break;
             }
         }
         if (stream is null) throw new InvalidDataException("Esta rádio não oferece um stream HTTP ou HTTPS reproduzível.");
-        return new RadioStation
+        var station = new RadioStation
         {
+            CatalogId = id,
             Name = name,
             StreamUrl = stream,
+            StreamUserAgent = IsUserAgentSafe(userAgent) ? userAgent : null,
             Location = GetString(root, "localizacao"),
             LogoSource = MakeLogoUrl(GetString(root, "url_logo"))
         };
+        var contacts = new List<RadioContact>();
+        if (root.TryGetProperty("contatos", out var contactItems) && contactItems.ValueKind == JsonValueKind.Array)
+            foreach (var contact in contactItems.EnumerateArray())
+                contacts.Add(new RadioContact(GetString(contact, "type") ?? string.Empty,
+                    GetString(contact, "title") ?? string.Empty, GetString(contact, "detail"), GetString(contact, "value")));
+        var schedule = new List<RadioProgram>();
+        if (root.TryGetProperty("schedule", out var scheduleRoot) && scheduleRoot.ValueKind == JsonValueKind.Object
+            && scheduleRoot.TryGetProperty("items", out var days) && days.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var day in days.EnumerateObject())
+            {
+                if (!TryDay(day.Name, out var weekday) || day.Value.ValueKind != JsonValueKind.Array) continue;
+                foreach (var entry in day.Value.EnumerateArray())
+                {
+                    var title = GetString(entry, "title");
+                    if (string.IsNullOrWhiteSpace(title)
+                        || !TimeOnly.TryParseExact(GetString(entry, "start_time"), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
+                        || !TimeOnly.TryParseExact(GetString(entry, "end_time"), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)) continue;
+                    schedule.Add(new RadioProgram(GetInt(entry, "id"), title, GetString(entry, "detail"), weekday, start, end));
+                }
+            }
+        }
+        var details = new RadiosNetStationDetails(station, GetString(root, "description"), GetString(root, "segmento"), contacts, schedule);
+        lock (_cacheGate) _detailsCache[id] = (cacheDay, now.Offset, details);
+        return details;
+    }
+
+    private static bool IsUserAgentSafe(string? value) => value is { Length: > 0 and <= 512 }
+        && !value.Any(char.IsControl);
+
+    private static bool TryDay(string value, out DayOfWeek day)
+    {
+        day = value switch
+        {
+            "Sun" => DayOfWeek.Sunday,
+            "Mon" => DayOfWeek.Monday,
+            "Tue" => DayOfWeek.Tuesday,
+            "Wed" => DayOfWeek.Wednesday,
+            "Thu" => DayOfWeek.Thursday,
+            "Fri" => DayOfWeek.Friday,
+            "Sat" => DayOfWeek.Saturday,
+            _ => (DayOfWeek)(-1)
+        };
+        return day != (DayOfWeek)(-1);
     }
 
     private async Task<JsonDocument> GetAsync(string path, CancellationToken cancellationToken)

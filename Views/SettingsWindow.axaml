@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RadioZapper.Views.SettingsWindow"
         x:CompileBindings="False"
-        Width="390" Height="310" WindowStartupLocation="CenterOwner"
+        Width="390" Height="340" WindowStartupLocation="CenterOwner"
         Title="Configurações">
   <StackPanel Margin="24" Spacing="16">
     <TextBlock Text="Configurações" FontSize="23" FontWeight="SemiBold" />
@@ -18,5 +18,7 @@
       <Button Content="Cancelar" Click="Cancel_Click" />
       <Button Content="Salvar" Command="{Binding SaveCommand}" />
     </StackPanel>
+    <TextBlock Text="{Binding AppVersion}" FontSize="11" Opacity="0.6"
+               HorizontalAlignment="Center" />
   </StackPanel>
 </Window>

@@ -29,6 +29,7 @@ public partial class App : Application
     private MainWindow? _window;
     private StationManagementWindow? _managementWindow;
     private RadioSearchWindow? _searchWindow;
+    private RadioDetailsWindow? _detailsWindow;
     private TrayIcon? _tray;
     private NativeMenuItem? _stationItem;
     private NativeMenuItem? _playItem;
@@ -50,20 +51,21 @@ public partial class App : Application
         var paths = new AppDataPaths();
         var files = new JsonFileStore(_logging.CreateLogger<JsonFileStore>());
         _settings = new SettingsService(paths, files);
+        _radiosNet = new RadiosNetService();
         _player = new RadioPlayerService(_logging.CreateLogger<RadioPlayerService>());
         _stations = new StationService(new StationRepository(paths, files), _settings, _player,
-            _logging.CreateLogger<StationService>());
+            _logging.CreateLogger<StationService>(), _radiosNet);
         _mediaKeys = new WindowsMediaKeyService(_logging.CreateLogger<WindowsMediaKeyService>());
         _logos = new LogoService(paths, _logging.CreateLogger<LogoService>());
-        _importer = new StationImportService(_logging.CreateLogger<StationImportService>());
-        _radiosNet = new RadiosNetService();
-        _viewModel = new MainWindowViewModel(_stations, _player, _settings, _logos, _mediaKeys,
+        _importer = new StationImportService(_logging.CreateLogger<StationImportService>(), _radiosNet);
+        _viewModel = new MainWindowViewModel(_stations, _radiosNet, _player, _settings, _logos, _mediaKeys,
             _logging.CreateLogger<MainWindowViewModel>());
         _window = new MainWindow { DataContext = _viewModel };
         _viewModel.ShowStations = ShowStationManagementWindow;
         _viewModel.ShowSearch = ShowRadioSearchWindow;
         _viewModel.ShowSaveCurrentAsync = SaveCurrentStationAsync;
         _viewModel.ShowSettingsAsync = ShowSettingsAsync;
+        _viewModel.ShowDetailsAsync = ShowDetailsAsync;
         _viewModel.PropertyChanged += (_, _) => UpdateTrayText();
         _window.Opened += (_, _) =>
         {
@@ -162,7 +164,7 @@ public partial class App : Application
     private async Task<RadioStation?> ShowEditorAsync(RadioStation? station, Window owner, bool isNew)
     {
         if (_logos is null || _importer is null) return null;
-        var dialog = new RadioEditorWindow { DataContext = new RadioEditorViewModel(station, _logos, _importer, isNew) };
+        var dialog = new RadioEditorWindow { DataContext = new RadioEditorViewModel(station, _logos, _importer, isNew, _radiosNet) };
         return await dialog.ShowDialog<RadioStation?>(owner);
     }
 
@@ -180,11 +182,6 @@ public partial class App : Application
         var window = new RadioSearchWindow { DataContext = viewModel, Icon = LoadIcon() };
         _searchWindow = window;
         viewModel.ShowEditorAsync = station => ShowEditorAsync(station, window, true);
-        viewModel.StationPlayed += (_, _) =>
-        {
-            window.Close();
-            ShowWindow();
-        };
         window.Closed += (_, _) =>
         {
             viewModel.Dispose();
@@ -213,6 +210,23 @@ public partial class App : Application
         catch (Exception ex) { _logging?.CreateLogger<App>().LogError(ex, "Falha ao salvar configurações."); }
     }
 
+    private async Task ShowDetailsAsync()
+    {
+        if (_window is null || _radiosNet is null || _stations?.CurrentStation is not { CatalogId: > 0 } station) return;
+        if (_detailsWindow is { } existing)
+        {
+            existing.Activate();
+            return;
+        }
+        var viewModel = new RadioDetailsViewModel(_radiosNet, station.Copy());
+        var dialog = new RadioDetailsWindow { DataContext = viewModel, Icon = LoadIcon() };
+        _detailsWindow = dialog;
+        dialog.Closed += (_, _) => { viewModel.Dispose(); _detailsWindow = null; };
+        var show = dialog.ShowDialog(_window);
+        _ = viewModel.LoadAsync();
+        await show;
+    }
+
     private void ApplyTheme() => RequestedThemeVariant = _settings?.Current.Theme switch
     {
         "Dark" => ThemeVariant.Dark,
@@ -224,7 +238,7 @@ public partial class App : Application
     {
         if (_window is null || _exiting) return;
         _managementWindow?.Close();
-        _searchWindow?.Close();
+        _detailsWindow?.Close();
         _window.ShowInTaskbar = false;
         _window.Hide();
     }

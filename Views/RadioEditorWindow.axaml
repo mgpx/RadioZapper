@@ -16,6 +16,11 @@
           <TextBlock Text="{Binding ImportStatus}" TextWrapping="Wrap" FontSize="12" Opacity="0.75" />
         </StackPanel>
       </Border>
+      <TextBlock Text="ID no catálogo RadiosNet (opcional)" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Text="{Binding CatalogIdText}" PlaceholderText="Ex.: 12796" />
+        <Button Grid.Column="1" Content="Buscar pelo ID" Command="{Binding LookupCatalogCommand}" />
+      </Grid>
       <TextBlock Text="Nome *" />
       <TextBox Text="{Binding Name}" PlaceholderText="Ex.: Atlântida FM" />
       <TextBlock Text="URL do stream *" />

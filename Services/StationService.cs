@@ -7,7 +7,8 @@ public sealed class StationService(
     StationRepository repository,
     SettingsService settings,
     IRadioPlayerService player,
-    ILogger<StationService> logger) : IStationService
+    ILogger<StationService> logger,
+    RadiosNetService? catalog = null) : IStationService
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<RadioStation> _stations = [];
@@ -71,7 +72,7 @@ public sealed class StationService(
             if (copy.Id == Guid.Empty || Find(copy.Id) is not null) copy.Id = Guid.NewGuid();
             SetCurrent(copy);
             await settings.SaveAsync();
-            await player.PlayAsync(copy);
+            await player.PlayAsync(await PreparePlaybackStationAsync(copy));
         }
         finally { _gate.Release(); }
     }
@@ -127,7 +128,7 @@ public sealed class StationService(
                 await settings.SaveAsync();
                 if (wasTemporary && previousUrl != copy.StreamUrl
                     && player.State is (PlaybackState.Playing or PlaybackState.Connecting))
-                    await player.PlayAsync(copy);
+                    await player.PlayAsync(await PreparePlaybackStationAsync(copy));
             }
             await PersistAsync();
             Changed?.Invoke(this, EventArgs.Empty);
@@ -151,7 +152,7 @@ public sealed class StationService(
             {
                 SetCurrent(copy);
                 if (player.State is (PlaybackState.Playing or PlaybackState.Connecting) && previousUrl != copy.StreamUrl)
-                    await player.PlayAsync(copy);
+                    await player.PlayAsync(await PreparePlaybackStationAsync(copy));
             }
             await PersistAsync();
             Changed?.Invoke(this, EventArgs.Empty);
@@ -216,7 +217,63 @@ public sealed class StationService(
     {
         SetCurrent(station);
         await settings.SaveAsync();
-        await player.PlayAsync(station);
+        await player.PlayAsync(await PreparePlaybackStationAsync(station));
+    }
+
+    private async Task<RadioStation> PreparePlaybackStationAsync(RadioStation station)
+    {
+        if (station.CatalogId is not { } id || catalog is null)
+            return station;
+        if (!string.IsNullOrWhiteSpace(station.StreamUserAgent))
+        {
+            if (ReferenceEquals(Find(station.Id), station))
+                _ = RefreshSavedUserAgentAsync(station.Id, id, station.StreamUrl);
+            return station;
+        }
+        try
+        {
+            using var lookupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var fromCatalog = await catalog.GetStationAsync(id, lookupTimeout.Token);
+            if (!string.Equals(fromCatalog.StreamUrl, station.StreamUrl, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(fromCatalog.StreamUserAgent)) return station;
+            if (station.StreamUserAgent != fromCatalog.StreamUserAgent)
+            {
+                station.StreamUserAgent = fromCatalog.StreamUserAgent;
+                if (ReferenceEquals(Find(station.Id), station)) await PersistAsync();
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
+                                   or OperationCanceledException or System.Text.Json.JsonException)
+        {
+            logger.LogWarning(ex, "Não foi possível atualizar o User-Agent da rádio {StationId}.", id);
+        }
+        return station;
+    }
+
+    private async Task RefreshSavedUserAgentAsync(Guid stationId, int catalogId, string streamUrl)
+    {
+        try
+        {
+            var fromCatalog = await catalog!.GetStationAsync(catalogId);
+            if (!string.Equals(fromCatalog.StreamUrl, streamUrl, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(fromCatalog.StreamUserAgent)) return;
+            await _gate.WaitAsync();
+            try
+            {
+                var saved = Find(stationId);
+                if (saved?.CatalogId != catalogId || !string.Equals(saved.StreamUrl, streamUrl, StringComparison.OrdinalIgnoreCase)
+                    || saved.StreamUserAgent == fromCatalog.StreamUserAgent) return;
+                saved.StreamUserAgent = fromCatalog.StreamUserAgent;
+                await PersistAsync();
+                if (CurrentStation?.Id == stationId && player.State is (PlaybackState.Error or PlaybackState.Connecting))
+                    await player.PlayAsync(saved);
+            }
+            finally { _gate.Release(); }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Não foi possível atualizar o User-Agent da rádio {StationId} em segundo plano.", catalogId);
+        }
     }
 
     private void SetCurrent(RadioStation? station)

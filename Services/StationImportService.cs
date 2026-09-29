@@ -5,7 +5,8 @@ using Microsoft.Extensions.Logging;
 
 namespace RadioZapper.Services;
 
-public sealed record StationImportResult(string? Name, string? StreamUrl, string? Location, string? LogoSource);
+public sealed record StationImportResult(string? Name, string? StreamUrl, string? Location, string? LogoSource,
+    int? CatalogId = null, string? StreamUserAgent = null);
 
 public sealed class StationImportService : IDisposable
 {
@@ -13,10 +14,12 @@ public sealed class StationImportService : IDisposable
     private const int MaxPlaylistBytes = 64_000;
     private readonly HttpClient _http;
     private readonly ILogger<StationImportService> _logger;
+    private readonly RadiosNetService? _catalog;
 
-    public StationImportService(ILogger<StationImportService> logger, HttpMessageHandler? handler = null)
+    public StationImportService(ILogger<StationImportService> logger, RadiosNetService? catalog = null, HttpMessageHandler? handler = null)
     {
         _logger = logger;
+        _catalog = catalog;
         _http = handler is null ? new HttpClient() : new HttpClient(handler);
         _http.Timeout = TimeSpan.FromSeconds(12);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(
@@ -35,17 +38,25 @@ public sealed class StationImportService : IDisposable
 
         if (uri.AbsolutePath.EndsWith(".pls", StringComparison.OrdinalIgnoreCase))
         {
-            var playlist = await ReadPlaylistAsync(uri, requestToken);
             var stationId = GetPlaylistStationId(uri);
+            if (stationId is { } id)
+            {
+                var catalogResult = await TryCatalogAsync(id, requestToken, cancellationToken);
+                if (catalogResult is not null) return catalogResult;
+            }
+            var playlist = await ReadPlaylistAsync(uri, requestToken);
             if (stationId is null) return new(playlist.Title, playlist.StreamUrl, null, null);
             var details = await TryReadMetadataAsync(stationId.Value, null, requestToken, cancellationToken);
-            return details is null ? new(playlist.Title, playlist.StreamUrl, null, null)
-                : details with { StreamUrl = playlist.StreamUrl, Name = details.Name ?? playlist.Title };
+            return details is null ? new(playlist.Title, playlist.StreamUrl, null, null, stationId)
+                : details with { StreamUrl = playlist.StreamUrl, Name = details.Name ?? playlist.Title, CatalogId = stationId };
         }
 
         var pageId = GetPageStationId(uri);
         if (pageId is null)
             throw new ArgumentException("Use uma página de rádio do Radios.com.br ou um link .pls.");
+
+        var fromCatalog = await TryCatalogAsync(pageId.Value, requestToken, cancellationToken);
+        if (fromCatalog is not null) return fromCatalog;
 
         (string StreamUrl, string? Title)? playlistResult = null;
         try
@@ -62,8 +73,26 @@ public sealed class StationImportService : IDisposable
         var metadata = await TryReadMetadataAsync(pageId.Value, uri, requestToken, cancellationToken);
         if (metadata is null && playlistResult is null)
             throw new InvalidDataException("Não foi possível obter o stream nem os dados da rádio. Tente o link PLS ou preencha manualmente.");
-        return metadata is null ? new(playlistResult?.Title, playlistResult?.StreamUrl, null, null)
-            : metadata with { StreamUrl = playlistResult?.StreamUrl, Name = metadata.Name ?? playlistResult?.Title };
+        return metadata is null ? new(playlistResult?.Title, playlistResult?.StreamUrl, null, null, pageId)
+            : metadata with { StreamUrl = playlistResult?.StreamUrl, Name = metadata.Name ?? playlistResult?.Title, CatalogId = pageId };
+    }
+
+    private async Task<StationImportResult?> TryCatalogAsync(int id, CancellationToken requestToken, CancellationToken callerToken)
+    {
+        if (_catalog is null) return null;
+        try
+        {
+            var station = await _catalog.GetStationAsync(id, requestToken);
+            return new StationImportResult(station.Name, station.StreamUrl, station.Location, station.LogoSource,
+                station.CatalogId, station.StreamUserAgent);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
+                                   or OperationCanceledException or System.Text.Json.JsonException)
+        {
+            if (callerToken.IsCancellationRequested) throw;
+            _logger.LogWarning(ex, "Não foi possível obter a rádio {StationId} pela API.", id);
+            return null;
+        }
     }
 
     private async Task<StationImportResult?> TryReadMetadataAsync(

@@ -58,6 +58,8 @@ public sealed class RadioPlayerService : IRadioPlayerService
                 try
                 {
                     media.AddOption(":no-video");
+                    if (!string.IsNullOrWhiteSpace(station.StreamUserAgent))
+                        media.AddOption($":http-user-agent={station.StreamUserAgent}");
                     var player = new MediaPlayer(media) { Volume = _volume };
                     Attach(player);
                     _player = player;

@@ -9,17 +9,27 @@ public partial class RadioEditorViewModel : ObservableObject
 {
     private readonly LogoService _logos;
     private readonly StationImportService _importer;
+    private readonly RadiosNetService? _catalog;
     private readonly Guid _id;
     private readonly int _order;
+    private string? _agentStreamUrl;
+    private string? _streamUserAgent;
+    private int? _agentCatalogId;
 
-    public RadioEditorViewModel(RadioStation? station, LogoService logos, StationImportService importer, bool isNew = false)
+    public RadioEditorViewModel(RadioStation? station, LogoService logos, StationImportService importer,
+        bool isNew = false, RadiosNetService? catalog = null)
     {
         _logos = logos;
         _importer = importer;
+        _catalog = catalog;
         _id = station?.Id ?? Guid.NewGuid();
         _order = station?.Order ?? 0;
+        CatalogIdText = station?.CatalogId?.ToString() ?? string.Empty;
         Name = station?.Name ?? string.Empty;
         StreamUrl = station?.StreamUrl ?? string.Empty;
+        _agentStreamUrl = station?.StreamUrl;
+        _streamUserAgent = station?.StreamUserAgent;
+        _agentCatalogId = station?.CatalogId;
         Location = station?.Location ?? string.Empty;
         LogoSource = station?.LogoSource ?? string.Empty;
         IsFavorite = station?.IsFavorite ?? false;
@@ -35,6 +45,7 @@ public partial class RadioEditorViewModel : ObservableObject
     [ObservableProperty] private string? _importStatus;
     [ObservableProperty] private bool _isImporting;
     [ObservableProperty] private string _name = string.Empty;
+    [ObservableProperty] private string _catalogIdText = string.Empty;
     [ObservableProperty] private string _streamUrl = string.Empty;
     [ObservableProperty] private string _location = string.Empty;
     [ObservableProperty] private string _logoSource = string.Empty;
@@ -55,6 +66,10 @@ public partial class RadioEditorViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(result.StreamUrl)) StreamUrl = result.StreamUrl;
             if (!string.IsNullOrWhiteSpace(result.Location)) Location = result.Location;
             if (!string.IsNullOrWhiteSpace(result.LogoSource)) LogoSource = result.LogoSource;
+            if (result.CatalogId is { } id) CatalogIdText = id.ToString();
+            _agentStreamUrl = result.StreamUrl;
+            _streamUserAgent = result.StreamUserAgent;
+            _agentCatalogId = result.CatalogId;
             ImportStatus = result.StreamUrl is null
                 ? "Dados encontrados. Informe a URL do stream para salvar."
                 : result.Name is null
@@ -72,10 +87,55 @@ public partial class RadioEditorViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task LookupCatalogAsync()
+    {
+        if (_catalog is null || IsImporting) return;
+        if (!int.TryParse(CatalogIdText, out var id) || id <= 0)
+        {
+            ErrorMessage = "Informe um ID numérico válido do catálogo.";
+            return;
+        }
+        ErrorMessage = null;
+        ImportStatus = "Buscando dados no catálogo...";
+        IsImporting = true;
+        try
+        {
+            var station = await _catalog.GetStationAsync(id);
+            if (string.IsNullOrWhiteSpace(Name)) Name = station.Name;
+            if (string.IsNullOrWhiteSpace(StreamUrl)) StreamUrl = station.StreamUrl;
+            if (string.IsNullOrWhiteSpace(Location)) Location = station.Location ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(LogoSource)) LogoSource = station.LogoSource ?? string.Empty;
+            _agentStreamUrl = station.StreamUrl;
+            _streamUserAgent = station.StreamUserAgent;
+            _agentCatalogId = id;
+            ImportStatus = "Dados encontrados. Seus campos já preenchidos foram preservados.";
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidDataException
+                                   or System.Text.Json.JsonException)
+        {
+            ImportStatus = null;
+            ErrorMessage = $"Não foi possível consultar o catálogo: {ex.Message}";
+        }
+        finally { IsImporting = false; }
+    }
+
+    [RelayCommand]
     private async Task SaveAsync()
     {
         ErrorMessage = null;
         if (IsImporting) { ErrorMessage = "Aguarde o fim da busca antes de salvar."; return; }
+        int? catalogId = null;
+        if (!string.IsNullOrWhiteSpace(CatalogIdText))
+        {
+            if (!int.TryParse(CatalogIdText.Trim(), out var parsedId) || parsedId <= 0)
+            {
+                ErrorMessage = "Informe um ID numérico válido do catálogo.";
+                return;
+            }
+            catalogId = parsedId;
+        }
+        if (catalogId is not null && (_agentCatalogId != catalogId || _streamUserAgent is null))
+            await LookupCatalogAsync();
         if (string.IsNullOrWhiteSpace(Name)) { ErrorMessage = "Informe o nome da rádio."; return; }
         if (!StationService.IsStreamUrlValid(StreamUrl))
         {
@@ -90,6 +150,9 @@ public partial class RadioEditorViewModel : ObservableObject
                 Id = _id,
                 Name = Name.Trim(),
                 StreamUrl = StreamUrl.Trim(),
+                CatalogId = catalogId,
+                StreamUserAgent = catalogId == _agentCatalogId && StreamUrl.Trim() == _agentStreamUrl
+                    ? _streamUserAgent : null,
                 Location = string.IsNullOrWhiteSpace(Location) ? null : Location.Trim(),
                 LogoSource = logo,
                 IsFavorite = IsFavorite,
