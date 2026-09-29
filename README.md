@@ -14,7 +14,6 @@ Player de rádios online para Windows, feito com C# e Avalonia UI. Reproduza sua
 
 ## Recursos
 
-- Cadastre rádios por URL de stream, pesquise no RadiosNet ou importe páginas do Radios.com.br e playlists `.pls`.
 - Organize suas estações, marque favoritas e adicione logotipos.
 - Veja a programação atual e a grade semanal das rádios vinculadas ao RadiosNet, quando disponíveis.
 - Controle reprodução, volume e troca de estação pela interface, bandeja do Windows ou teclas multimídia.
