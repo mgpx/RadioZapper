@@ -6,16 +6,16 @@ Player de rádios online para Windows, feito com C# e Avalonia UI. Reproduza sua
 
 ### Tela inicial
 
-![Tela inicial do Radio Zapper](docs/imagens/tela-inicial.png)
+<img src="docs/imagens/tela-inicial.png" alt="Tela inicial do Radio Zapper" width="600">
 
 ### Busca de rádios
 
-![Busca de rádios no Radio Zapper](docs/imagens/busca.png)
+<img src="docs/imagens/busca.png" alt="Busca de rádios no Radio Zapper" width="600">
 
 ## Recursos
 
 - Organize suas estações, marque favoritas e adicione logotipos.
-- Veja a programação atual e a grade semanal das rádios vinculadas ao RadiosNet, quando disponíveis.
+- Veja a programação atual e a grade semanal das rádios vinculadas, quando disponíveis.
 - Controle reprodução, volume e troca de estação pela interface, bandeja do Windows ou teclas multimídia.
 - Escolha o tema e configure o comportamento ao minimizar ou fechar a janela.
 
