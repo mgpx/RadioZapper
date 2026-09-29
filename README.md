@@ -6,11 +6,11 @@ Player de rádios online para Windows, feito com C# e Avalonia UI. Reproduza sua
 
 ### Tela inicial
 
-<img src="docs/imagens/tela-inicial.png" alt="Tela inicial do Radio Zapper" width="600">
+<img src="docs/imagens/tela-inicial.png" alt="Tela inicial do Radio Zapper" width="270">
 
 ### Busca de rádios
 
-<img src="docs/imagens/busca.png" alt="Busca de rádios no Radio Zapper" width="600">
+<img src="docs/imagens/busca.png" alt="Busca de rádios no Radio Zapper" width="300">
 
 ## Recursos
 
